@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 import json
 import logging
 import multiprocessing
+from multiprocessing.dummy import Pool
 import os
 import subprocess
 import sys
@@ -17,30 +18,23 @@ import click
 
 import psycopg2
 
-from mpl import MultiProcessingLog
-
 
 find_mp3s = lambda f: f.endswith('.mp3')
 
 scan_for_fingerprint = lambda l: l.startswith('FINGERPRINT=')
 
 
-def get_logger(purpose):
-    out_h = MultiProcessingLog('progress.log')
-    fmt = logging.Formatter('%(asctime)s %(name)s %(funcName)s %(message)s')
-    out_h.setFormatter(fmt)
-
-    log = logging.getLogger(purpose)
-    log.addHandler(out_h)
-    log.setLevel(logging.WARNING)
-
-    return log
+# configure logger
+log = logging.getLogger('get-bpm')
+out_h = logging.FileHandler('progress.log', 'a')
+fmt = logging.Formatter('%(asctime)s [%(name)s/%(funcName)s] %(message)s')
+out_h.setFormatter(fmt)
+log.addHandler(out_h)
+log.setLevel(logging.INFO)
 
 
 def get_bpm(path):
     "Decodes file with `sox`, processes with `bpm`, returns bpm value"
-
-    log = get_logger('bpm')
 
     cmd = 'sox -V1 "' + path + '" -r 44100 -e float -c 1 -t raw - | bpm'
 
@@ -65,8 +59,6 @@ def analyze_and_echoprint(path):
     - extract bitrate and duration
     """
 
-    log = get_logger('echoprint')
-
     proc = subprocess.Popen(['echoprint-codegen', path],
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
@@ -84,8 +76,6 @@ def analyze_and_echoprint(path):
 
 def get_chromaprint(path):
     "Uses `fpcalc` to calculate a fingerprint"
-
-    log = get_logger('chromaprint')
 
     proc = subprocess.Popen(['fpcalc', path],
                             stdout=subprocess.PIPE,
@@ -107,8 +97,6 @@ def get_chromaprint(path):
 
 def gather_info(path):
     "Scans for artist, title, and BPM"
-
-    log = get_logger('gather')
 
     log.info('<%s> Analyzing' % path)
 
@@ -216,7 +204,7 @@ def scan(path, workers, solo):
     c = 0
 
     if not solo:
-        pool = multiprocessing.Pool(workers)
+        pool = Pool(workers)
 
     for root, sub_fs, files in os.walk(path):
         mp3s = filter(find_mp3s, files)
@@ -227,7 +215,7 @@ def scan(path, workers, solo):
             c += 1
 
             if not solo:
-                pool.apply_async(gather_info, (mp3_path, ))
+                pool.imap(gather_info, (mp3_path, ))
             else:
                 gather_info(mp3_path)
 
