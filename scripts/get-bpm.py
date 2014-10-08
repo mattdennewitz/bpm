@@ -23,6 +23,8 @@ find_mp3s = lambda f: f.endswith('.mp3')
 
 scan_for_fingerprint = lambda l: l.startswith('FINGERPRINT=')
 
+conn = psycopg2.connect('dbname=bpm_data')
+
 
 # configure logger
 log = logging.getLogger('get-bpm')
@@ -112,6 +114,18 @@ def gather_info(path):
         log.error('<%s> Skipping too large a file: %s' % (path, szof))
         return False
 
+    cursor = conn.cursor()
+
+    # ensure what we're about to insert
+    # does not alread exist
+    cursor.execute('select 1 from scanned where fn = %s', (path, ))
+                   # (audio_info_and_echoprint['code'], ))
+    res = cursor.fetchall()
+
+    if res:
+        log.warning('<%s> Skipping existing track (from print)' % path)
+        return None
+
     # run most-in-one scan with `echoprint-codegen`,
     # which will return audio metadata *and* fingerprint
     audio_info_and_echoprint = analyze_and_echoprint(path)
@@ -148,19 +162,6 @@ def gather_info(path):
     chromaprint = get_chromaprint(path)
 
     log.info('<%s> Analysis complete. Saving.' % path)
-
-    conn = psycopg2.connect('dbname=bpm_data')
-    cursor = conn.cursor()
-
-    # ensure what we're about to insert
-    # does not alread exist
-    cursor.execute('select 1 from scanned where fn = %s', (path, ))
-                   # (audio_info_and_echoprint['code'], ))
-    res = cursor.fetchall()
-
-    if res:
-        log.warning('<%s> Skipping existing track (from print)' % path)
-        return None
 
     # measure bpm
     bpm = get_bpm(path)
@@ -230,21 +231,3 @@ def scan(path, workers, solo):
 
 if __name__ == '__main__':
     scan()
-
-
-# def get_mutagen_audio_info(path):
-#     "Uses `mutagen` to read an audio file's duration"
-#
-#     audio = MP3(path)
-#
-#     return (audio.info.length, audio.info.bitrate)
-
-
-# def get_id3(path):
-#     "Uses `mutagen` lib to grab artist, album, and title information"
-#
-#     try:
-#         return ID3(path)
-#     except Exception as exc:
-#         # todo: log exception
-#         return {}
