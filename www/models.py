@@ -1,11 +1,16 @@
 from __future__ import unicode_literals
 
 from peewee import (CharField, IntegerField, FloatField,
-                    ForeignKeyField, TextField)
-from playhouse.postgres_ext import JSONField
+                    ForeignKeyField, Model, TextField)
+from playhouse.postgres_ext import ArrayField, JSONField
 
 from www import db
 from www.fields import SlugField
+
+import logging
+l = logging.getLogger('peewee')
+l.setLevel(logging.DEBUG)
+l.addHandler(logging.StreamHandler())
 
 
 class ScannedTrack(db.Model):
@@ -21,35 +26,40 @@ class ScannedTrack(db.Model):
     chromaprint = TextField()
     echoprint = TextField()
 
-    class Meta:
-        db = db.database
-        db_table = 'scanned'
 
+#
+# entities
+#
 
-class Artist(db.Model):
+class Entity(db.Model):
     name = CharField()
-    slug = SlugField(unique=True)
+    slug = SlugField(populate_from='name', unique=True)
+    mbids = ArrayField(CharField)
 
 
-class Genre(db.Model):
-    name = CharField()
-    slug = SlugField(unique=True)
+class Artist(Entity):
+    pass
 
 
-class Release(db.Model):
-    artist = ForeignKeyField(Artist, related_name='releases')
-    name = CharField()
-    slug = SlugField(unique=True)
+class Genre(Entity):
+    pass
 
 
-class Track(db.Model):
+class Release(Entity):
+    year = IntegerField()
+
+
+class Track(Entity):
     "A single track, which has already been scanned"
-
-    artist = ForeignKeyField(Artist, related_name='tracks', null=True)
-    release = ForeignKeyField(Release, related_name='tracks', null=True)
-    genre = ForeignKeyField(Genre, related_name='tracks', null=True)
     title = CharField()
     bpm = FloatField()
 
-    def get_full_title(self):
-        return '%s: %s' % (self.artist.name, self.title)
+
+class ReleaseArtist(db.Model):
+    release = ForeignKeyField(Release)
+    artist = ForeignKeyField(Artist)
+
+
+class ReleaseTrack(db.Model):
+    release = ForeignKeyField(Release)
+    track = ForeignKeyField(Track)

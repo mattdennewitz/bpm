@@ -30,5 +30,9 @@ def slugify(text, delim='-'):
 
 
 class SlugField(CharField):
+    def __init__(self, populate_from, *a, **kw):
+        self.populate_from = populate_from
+        super(SlugField, self).__init__(*a, **kw)
+
     def coerce(self, value):
         return slugify(value)

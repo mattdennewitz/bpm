@@ -179,12 +179,12 @@ def gather_info(path):
     cursor.execute("""
 insert into
     scanned (
-      bpm, duration, bitrate, id3, chromaprint, echoprint, fn
+      bpm, duration, bitrate, id3, chromaprint, echoprint, fn, procd
     )
 values
     (
       %(bpm)s, %(duration)s, %(bitrate)s, %(id3)s
-      , %(chromaprint)s, %(echoprint)s, %(fn)s
+      , %(chromaprint)s, %(echoprint)s, %(fn)s, false
     )
 ;
     """, values)

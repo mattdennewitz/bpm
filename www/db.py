@@ -1,6 +1,13 @@
 from __future__ import unicode_literals
+import logging
 
-from peewee import Model, PostgresqlDatabase
+from peewee import Model
+from playhouse.postgres_ext import PostgresqlExtDatabase
+
+
+logger = logging.getLogger('peewee')
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler())
 
 
 class Database(object):
@@ -12,12 +19,12 @@ class Database(object):
         self.Model = self.get_model_class()
 
     def create_database(self):
-        self.database = PostgresqlDatabase(self.app.config['database_name'])
+        self.database = PostgresqlExtDatabase(self.app.config['database_name'])
 
     def get_model_class(self):
         class BaseModel(Model):
             class Meta:
-                db = self.database
+                database = self.database
         return BaseModel
 
     def _db_connect(self):
